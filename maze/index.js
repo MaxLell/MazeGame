@@ -1,13 +1,18 @@
-const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
-
-const cellsHorizontal = 3;
-const cellsVertical = 4;
+/**
+ * defines
+ */
+const cellsHorizontal = 15;
+const cellsVertical = 10;
 const width = window.innerWidth;
 const height = window.innerHeight;
-
 const unitLengthX = width / cellsHorizontal;
 const unitLengthY = height / cellsVertical;
 
+
+/**
+ * Boilerplate code for Matter.js
+ */
+const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 const engine = Engine.create();
 engine.world.gravity.y = 0;
 const { world } = engine;
@@ -23,7 +28,10 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-// Walls
+/**
+ * Surrounding walls
+ * This prevents the non static elements to fall out of the canvas
+ */
 const walls = [
     Bodies.rectangle(width / 2, 0, width, 2, { isStatic: true }),
     Bodies.rectangle(width / 2, height, width, 2, { isStatic: true }),
@@ -32,56 +40,83 @@ const walls = [
 ];
 World.add(world, walls);
 
-// Maze generation
-
+/**
+ * Maze generation
+ */
 const shuffle = arr => {
+    /**
+     * This function shuffles an array
+     */
     let counter = arr.length;
-
     while (counter > 0) {
         const index = Math.floor(Math.random() * counter);
-
         counter--;
-
         const temp = arr[counter];
         arr[counter] = arr[index];
         arr[index] = temp;
     }
-
     return arr;
 };
 
+/**
+ * The maze is composed of three arrays:
+ * 1. grid: keeps track of which cells have been visited
+ * 2. verticals: contains the vertical walls
+ * 3. horizontals: contains the horizontal walls
+ */
 const grid = Array(cellsVertical)
     .fill(null)
     .map(() => Array(cellsHorizontal).fill(false));
 
-const verticals = Array(cellsVertical)
+const verticalWalls = Array(cellsVertical)
     .fill(null)
     .map(() => Array(cellsHorizontal - 1).fill(false));
 
-const horizontals = Array(cellsVertical - 1)
+const horizontalWalls = Array(cellsVertical - 1)
     .fill(null)
     .map(() => Array(cellsHorizontal).fill(false));
 
 const startRow = Math.floor(Math.random() * cellsVertical);
 const startColumn = Math.floor(Math.random() * cellsHorizontal);
 
+/**
+ * This function recursively steps through the cells
+ * and removes the walls between them at random
+ * 
+ * This algorithm is called Eller's algorithm. However
+ * the current implementation is not the original one.
+ * This algorithm follows a subtractive approach, meaning
+ * that it starts with a complete maze and removes walls
+ * 
+ * Source: http://www.neocomputer.org/projects/eller.html
+ */
 const stepThroughCell = (row, column) => {
-    // If i have visted the cell at [row, column], then return
+    /**
+     * If the cell has already been visited, return immediately
+     * This is furthermore the base case for the recursion
+     */
     if (grid[row][column]) {
         return;
     }
-
-    // Mark this cell as being visited
+    /**
+     * Mark the current cell as being visited
+     * in the grid array
+     */
     grid[row][column] = true;
 
-    // Assemble randomly-ordered list of neighbors
+    /**
+     * Figure the neighbors of the current cell
+     * and shuffle them. The shuffle function
+     * does only shuffle in 1 dimension
+     * 
+     */
     const neighbors = shuffle([
         [row - 1, column, 'up'],
         [row, column + 1, 'right'],
         [row + 1, column, 'down'],
         [row, column - 1, 'left']
     ]);
-    // For each neighbor....
+
     for (let neighbor of neighbors) {
         const [nextRow, nextColumn, direction] = neighbor;
 
@@ -92,37 +127,49 @@ const stepThroughCell = (row, column) => {
             nextColumn < 0 ||
             nextColumn >= cellsHorizontal
         ) {
+            /**
+             * continue skips the rest of the loop
+             * and goes to the next iteration
+             */
             continue;
         }
 
-        // If we have visited that neighbor, continue to next neighbor
+        /**
+         * If this neighbor has already been visited,
+         * skip the rest of the loop and go to the next iteration
+         */
         if (grid[nextRow][nextColumn]) {
             continue;
         }
 
         // Remove a wall from either horizontals or verticals
-        if (direction === 'left') {
-            verticals[row][column - 1] = true;
-        } else if (direction === 'right') {
-            verticals[row][column] = true;
-        } else if (direction === 'up') {
-            horizontals[row - 1][column] = true;
-        } else if (direction === 'down') {
-            horizontals[row][column] = true;
+        switch (direction) {
+            case 'left':
+                verticalWalls[row][column - 1] = true;
+                break;
+            case 'right':
+                verticalWalls[row][column] = true;
+                break;
+            case 'up':
+                horizontalWalls[row - 1][column] = true;
+                break;
+            case 'down':
+                horizontalWalls[row][column] = true;
+                break;
+            default:
+                break;
         }
-
         stepThroughCell(nextRow, nextColumn);
     }
 };
 
 stepThroughCell(startRow, startColumn);
 
-horizontals.forEach((row, rowIndex) => {
+horizontalWalls.forEach((row, rowIndex) => {
     row.forEach((open, columnIndex) => {
         if (open) {
             return;
         }
-
         const wall = Bodies.rectangle(
             columnIndex * unitLengthX + unitLengthX / 2,
             rowIndex * unitLengthY + unitLengthY,
@@ -132,7 +179,7 @@ horizontals.forEach((row, rowIndex) => {
                 label: 'wall',
                 isStatic: true,
                 render: {
-                    fillStyle: 'red'
+                    fillStyle: 'white'
                 }
             }
         );
@@ -140,12 +187,11 @@ horizontals.forEach((row, rowIndex) => {
     });
 });
 
-verticals.forEach((row, rowIndex) => {
+verticalWalls.forEach((row, rowIndex) => {
     row.forEach((open, columnIndex) => {
         if (open) {
             return;
         }
-
         const wall = Bodies.rectangle(
             columnIndex * unitLengthX + unitLengthX,
             rowIndex * unitLengthY + unitLengthY / 2,
@@ -155,7 +201,7 @@ verticals.forEach((row, rowIndex) => {
                 label: 'wall',
                 isStatic: true,
                 render: {
-                    fillStyle: 'red'
+                    fillStyle: 'white'
                 }
             }
         );
@@ -174,7 +220,7 @@ const goal = Bodies.rectangle(
         label: 'goal',
         isStatic: true,
         render: {
-            fillStyle: 'green'
+            fillStyle: 'teal'
         }
     }
 );
@@ -186,7 +232,7 @@ const ballRadius = Math.min(unitLengthX, unitLengthY) / 4;
 const ball = Bodies.circle(unitLengthX / 2, unitLengthY / 2, ballRadius, {
     label: 'ball',
     render: {
-        fillStyle: 'blue'
+        fillStyle: 'orange'
     }
 });
 World.add(world, ball);
@@ -194,25 +240,27 @@ World.add(world, ball);
 document.addEventListener('keydown', event => {
     const { x, y } = ball.velocity;
 
-    if (event.keyCode === 87) {
-        Body.setVelocity(ball, { x, y: y - 5 });
-    }
-
-    if (event.keyCode === 68) {
-        Body.setVelocity(ball, { x: x + 5, y });
-    }
-
-    if (event.keyCode === 83) {
-        Body.setVelocity(ball, { x, y: y + 5 });
-    }
-
-    if (event.keyCode === 65) {
-        Body.setVelocity(ball, { x: x - 5, y });
+    switch (event.keyCode) {
+        case 38:
+            Body.setVelocity(ball, { x, y: y - 5 });
+            break;
+        case 39:
+            Body.setVelocity(ball, { x: x + 5, y });
+            break;
+        case 40:
+            Body.setVelocity(ball, { x, y: y + 5 });
+            break;
+        case 37:
+            Body.setVelocity(ball, { x: x - 5, y });
+            break;
+        default:
+            break;
     }
 });
-
-// Win Condition
-
+/**
+ * Win condition:
+ * When the ball touches the goal the game is won.
+ */
 Events.on(engine, 'collisionStart', event => {
     event.pairs.forEach(collision => {
         const labels = ['ball', 'goal'];
