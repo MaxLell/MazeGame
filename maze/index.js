@@ -76,9 +76,6 @@ const horizontalWalls = Array(cellsVertical - 1)
     .fill(null)
     .map(() => Array(cellsHorizontal).fill(false));
 
-const startRow = Math.floor(Math.random() * cellsVertical);
-const startColumn = Math.floor(Math.random() * cellsHorizontal);
-
 /**
  * This function recursively steps through the cells
  * and removes the walls between them at random
@@ -89,6 +86,11 @@ const startColumn = Math.floor(Math.random() * cellsHorizontal);
  * that it starts with a complete maze and removes walls
  * 
  * Source: http://www.neocomputer.org/projects/eller.html
+ * 
+ * Since this algorithm is recursive, only a maze of limited
+ * size can be generated. This is because the call stack
+ * has a limited size. For larger mazes, a different algorithm
+ * should be used, which does not rely on recursion.
  */
 const stepThroughCell = (row, column) => {
     /**
@@ -163,54 +165,68 @@ const stepThroughCell = (row, column) => {
     }
 };
 
+/**
+ * Start the maze generation from a random cell
+ * in the grid
+ */
+const startRow = Math.floor(Math.random() * cellsVertical);
+const startColumn = Math.floor(Math.random() * cellsHorizontal);
 stepThroughCell(startRow, startColumn);
 
-horizontalWalls.forEach((row, rowIndex) => {
-    row.forEach((open, columnIndex) => {
-        if (open) {
-            return;
-        }
-        const wall = Bodies.rectangle(
-            columnIndex * unitLengthX + unitLengthX / 2,
-            rowIndex * unitLengthY + unitLengthY,
-            unitLengthX,
-            5,
-            {
-                label: 'wall',
-                isStatic: true,
-                render: {
-                    fillStyle: 'white'
+/**
+ * Drawing the maze on the canvas
+ */
+horizontalWalls.forEach(
+    (row, rowIndex) => {
+        row.forEach(
+            (open, columnIndex) => {
+                if (open) {
+                    return;
                 }
-            }
-        );
-        World.add(world, wall);
+                const wall = Bodies.rectangle(
+                    columnIndex * unitLengthX + unitLengthX / 2,
+                    rowIndex * unitLengthY + unitLengthY,
+                    unitLengthX,
+                    5,
+                    {
+                        label: 'wall',
+                        isStatic: true,
+                        render: {
+                            fillStyle: 'white'
+                        }
+                    }
+                );
+                World.add(world, wall);
+            });
     });
-});
 
-verticalWalls.forEach((row, rowIndex) => {
-    row.forEach((open, columnIndex) => {
-        if (open) {
-            return;
-        }
-        const wall = Bodies.rectangle(
-            columnIndex * unitLengthX + unitLengthX,
-            rowIndex * unitLengthY + unitLengthY / 2,
-            5,
-            unitLengthY,
-            {
-                label: 'wall',
-                isStatic: true,
-                render: {
-                    fillStyle: 'white'
+verticalWalls.forEach(
+    (row, rowIndex) => {
+        row.forEach(
+            (open, columnIndex) => {
+                if (open) {
+                    return;
                 }
-            }
-        );
-        World.add(world, wall);
+                const wall = Bodies.rectangle(
+                    columnIndex * unitLengthX + unitLengthX,
+                    rowIndex * unitLengthY + unitLengthY / 2,
+                    5,
+                    unitLengthY,
+                    {
+                        label: 'wall',
+                        isStatic: true,
+                        render: {
+                            fillStyle: 'white'
+                        }
+                    }
+                );
+                World.add(world, wall);
+            });
     });
-});
 
-// Goal
-
+/**
+ * Render the goal
+ */
 const goal = Bodies.rectangle(
     width - unitLengthX / 2,
     height - unitLengthY / 2,
@@ -226,8 +242,9 @@ const goal = Bodies.rectangle(
 );
 World.add(world, goal);
 
-// Ball
-
+/**
+ * Render the ball
+ */
 const ballRadius = Math.min(unitLengthX, unitLengthY) / 4;
 const ball = Bodies.circle(unitLengthX / 2, unitLengthY / 2, ballRadius, {
     label: 'ball',
@@ -237,23 +254,27 @@ const ball = Bodies.circle(unitLengthX / 2, unitLengthY / 2, ballRadius, {
 });
 World.add(world, ball);
 
+/**
+ * Add key controls
+ */
 document.addEventListener('keydown', event => {
     const { x, y } = ball.velocity;
 
     switch (event.keyCode) {
-        case 38:
+        case 38: // Arrow key up
             Body.setVelocity(ball, { x, y: y - 5 });
             break;
-        case 39:
+        case 39: // Arrow key right
             Body.setVelocity(ball, { x: x + 5, y });
             break;
-        case 40:
+        case 40: // Arrow key down
             Body.setVelocity(ball, { x, y: y + 5 });
             break;
-        case 37:
+        case 37: // Arrow key left
             Body.setVelocity(ball, { x: x - 5, y });
             break;
         default:
+            // Do nothing for all other keys
             break;
     }
 });
@@ -269,6 +290,11 @@ Events.on(engine, 'collisionStart', event => {
             labels.includes(collision.bodyA.label) &&
             labels.includes(collision.bodyB.label)
         ) {
+            /**
+             * Display the winner message
+             * Enable gravity - so that the entire maze and the ball
+             * fall down
+             */
             document.querySelector('.winner').classList.remove('hidden');
             world.gravity.y = 1;
             world.bodies.forEach(body => {
